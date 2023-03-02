@@ -1,3 +1,7 @@
+module Bytes
+
+import Base: read, write, float, Integer, UInt8, String
+
 primitive type ConstantPoolTag 8 end
 ConstantPoolTag(x) = reinterpret(ConstantPoolTag, UInt8(x))
 UInt8(x::ConstantPoolTag) = reinterpret(UInt8, x)
@@ -449,4 +453,6 @@ function read(io::IO, ::Type{ClassFile})
         methods,
         attributes
     )
+end
+
 end
