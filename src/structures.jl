@@ -31,27 +31,12 @@ end
 
 abstract type ConstantInfo{ConstantPoolTag} end
 
-struct ConstantPoolInfo
-    tag::ConstantPoolTag
-    info::ConstantInfo
-end
-
-function write(io::IO, info::ConstantPoolInfo)
-    write(io, info.tag)
-    write(io, info.info)
-end
-
-function read(io::IO, ::Type{ConstantPoolInfo})
-    tag = read(io, ConstantPoolTag)
-    info = read(io, tag)
-    ConstantPoolInfo(tag, info)
-end
-
 struct ConstantClassInfo <: ConstantInfo{CONSTANT_CLASS}
     nameindex::UInt16
 end
 
 function write(io::IO, info::ConstantClassInfo)
+    write(io, CONSTANT_CLASS)
     write(io, hton(info.nameindex))
 end
 
@@ -65,6 +50,7 @@ struct ConstantFieldrefInfo <: ConstantInfo{CONSTANT_FIELDREF}
 end
 
 function write(io::IO, info::ConstantFieldrefInfo)
+    write(io, CONSTANT_FIELDREF)
     write(io, hton(info.classindex))
     write(io, hton(info.nameandtypeindex))
 end
@@ -79,6 +65,7 @@ struct ConstantMethodrefInfo <: ConstantInfo{CONSTANT_METHODREF}
 end
 
 function write(io::IO, info::ConstantMethodrefInfo)
+    write(io, CONSTANT_METHODREF)
     write(io, hton(info.classindex))
     write(io, hton(info.nameandtypeindex))
 end
@@ -93,6 +80,7 @@ struct ConstantInterfaceMethodrefInfo <: ConstantInfo{CONSTANT_INTERFACEMETHODRE
 end
 
 function write(io::IO, info::ConstantInterfaceMethodrefInfo)
+    write(io, CONSTANT_INTERFACEMETHODREF)
     write(io, hton(info.classindex))
     write(io, hton(info.nameandtypeindex))
 end
@@ -106,6 +94,7 @@ struct ConstantStringInfo <: ConstantInfo{CONSTANT_STRING}
 end
 
 function write(io::IO, info::ConstantStringInfo)
+    write(io, CONSTANT_STRING)
     write(io, hton(info.stringindex))
 end
 
@@ -118,6 +107,7 @@ struct ConstantIntegerInfo <: ConstantInfo{CONSTANT_INTEGER}
 end
 
 function write(io::IO, info::ConstantIntegerInfo)
+    write(io, CONSTANT_INTEGER)
     write(io, hton(info.bytes))
 end
 
@@ -130,6 +120,7 @@ struct ConstantFloatInfo <: ConstantInfo{CONSTANT_FLOAT}
 end
 
 function write(io::IO, info::ConstantFloatInfo)
+    write(io, CONSTANT_FLOAT)
     write(io, hton(info.bytes))
 end
 
@@ -143,6 +134,7 @@ struct ConstantLongInfo <: ConstantInfo{CONSTANT_LONG}
 end
 
 function write(io::IO, info::ConstantLongInfo)
+    write(io, CONSTANT_LONG)
     write(io, hton(info.highbytes))
     write(io, hton(info.lowbytes))
 end
@@ -161,6 +153,7 @@ end
 float(info::ConstantDoubleInfo) = Float64(info.highbytes)<<32 + Float64(info.lowbytes)
 
 function write(io::IO, info::ConstantDoubleInfo)
+    write(io, CONSTANT_DOUBLE)
     write(io, hton(info.highbytes))
     write(io, hton(info.lowbytes))
 end
@@ -175,6 +168,7 @@ struct ConstantNameAndTypeInfo <: ConstantInfo{CONSTANT_NAMEANDTYPE}
 end
 
 function write(io::IO, info::ConstantNameAndTypeInfo)
+    write(io, CONSTANT_NAMEANDTYPE)
     write(io, hton(info.nameindex))
     write(io, hton(info.descriptorindex))
 end
@@ -222,13 +216,14 @@ function javastring(bytes::Vector{UInt8})
 end
 
 function write(io::IO, info::ConstantUtf8Info)
+    write(io, CONSTANT_UTF8)
     write(io, hton(info.length))
     write(io, info.bytes)
 end
 
 function read(io::IO, ::Type{ConstantUtf8Info})
     length = ntoh(read(io, UInt16))
-    bytes = [read(io, UInt8) for i in 1:length]
+    bytes = [read(io, UInt8) for _ in 1:length]
     ConstantUtf8Info(length, bytes)
 end
 
@@ -238,6 +233,7 @@ struct ConstantMethodHandleInfo <: ConstantInfo{CONSTANT_METHODHANDLE}
 end
 
 function write(io::IO, info::ConstantMethodHandleInfo)
+    write(io, CONSTANT_METHODHANDLE)
     write(io, hton(info.referencekind))
     write(io, hton(info.referenceindex))
 end
@@ -251,6 +247,7 @@ struct ConstantMethodTypeInfo <: ConstantInfo{CONSTANT_METHODTYPE}
 end
 
 function write(io::IO, info::ConstantMethodTypeInfo)
+    write(io, CONSTANT_METHODTYPE)
     write(io, hton(info.descriptorindex))
 end
 
@@ -264,6 +261,7 @@ struct ConstantInvokeDynamicInfo <: ConstantInfo{CONSTANT_INVOKEDYNAMIC}
 end
 
 function write(io::IO, info::ConstantInvokeDynamicInfo)
+    write(io, CONSTANT_INVOKEDYNAMIC)
     write(io, hton(info.bootstrapmethodattrindex))
     write(io, hton(info.nameandtypeindex))
 end
@@ -272,36 +270,36 @@ function read(io::IO, ::Type{ConstantInvokeDynamicInfo})
     ConstantInvokeDynamicInfo(ntoh(read(io, UInt16)), ntoh(read(io, UInt16)))
 end
 
-function read(io::IO, ::Type{ConstantPoolInfo})
+function read(io::IO, ::Type{ConstantInfo})
     tag = ConstantPoolTag(ntoh(read(io, UInt8)))
     if tag == CONSTANT_UTF8
-        ConstantPoolInfo(tag, read(io, ConstantUtf8Info))
+        read(io, ConstantUtf8Info)
     elseif tag == CONSTANT_INTEGER
-        ConstantPoolInfo(tag, read(io, ConstantIntegerInfo))
+        read(io, ConstantIntegerInfo)
     elseif tag == CONSTANT_FLOAT
-        ConstantPoolInfo(tag, read(io, ConstantFloatInfo))
+        read(io, ConstantFloatInfo)
     elseif tag == CONSTANT_LONG
-        ConstantPoolInfo(tag, read(io, ConstantLongInfo))
+        read(io, ConstantLongInfo)
     elseif tag == CONSTANT_DOUBLE
-        ConstantPoolInfo(tag, read(io, ConstantDoubleInfo))
+        read(io, ConstantDoubleInfo)
     elseif tag == CONSTANT_CLASS
-        ConstantPoolInfo(tag, read(io, ConstantClassInfo))
+        read(io, ConstantClassInfo)
     elseif tag == CONSTANT_STRING
-        ConstantPoolInfo(tag, read(io, ConstantStringInfo))
+        read(io, ConstantStringInfo)
     elseif tag == CONSTANT_FIELDREF
-        ConstantPoolInfo(tag, read(io, ConstantFieldrefInfo))
+        read(io, ConstantFieldrefInfo)
     elseif tag == CONSTANT_METHODREF
-        ConstantPoolInfo(tag, read(io, ConstantMethodrefInfo))
+        read(io, ConstantMethodrefInfo)
     elseif tag == CONSTANT_INTERFACEMETHODREF
-        ConstantPoolInfo(tag, read(io, ConstantInterfaceMethodrefInfo))
+        read(io, ConstantInterfaceMethodrefInfo)
     elseif tag == CONSTANT_NAMEANDTYPE
-        ConstantPoolInfo(tag, read(io, ConstantNameAndTypeInfo))
+        read(io, ConstantNameAndTypeInfo)
     elseif tag == CONSTANT_METHODHANDLE
-        ConstantPoolInfo(tag, read(io, ConstantMethodHandleInfo))
+        read(io, ConstantMethodHandleInfo)
     elseif tag == CONSTANT_METHODTYPE
-        ConstantPoolInfo(tag, read(io, ConstantMethodTypeInfo))
+        read(io, ConstantMethodTypeInfo)
     elseif tag == CONSTANT_INVOKEDYNAMIC
-        ConstantPoolInfo(tag, read(io, ConstantInvokeDynamicInfo))
+        read(io, ConstantInvokeDynamicInfo)
     else
         throw(ArgumentError("Invalid constant pool tag $(tag)"))
     end
@@ -323,7 +321,7 @@ end
 function read(io::IO, ::Type{AttributeInfo})
     attributenameindex = ntoh(read(io, UInt16))
     attributecount = ntoh(read(io, UInt32))
-    info = [ntoh(read(io, UInt8)) for i in 1:attributecount]
+    info = [ntoh(read(io, UInt8)) for _ in 1:attributecount]
     AttributeInfo(attributenameindex, info)
 end
 
@@ -349,7 +347,7 @@ function read(io::IO, ::Type{FieldInfo})
     nameindex = ntoh(read(io, UInt16))
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
-    attributes = [read(io, AttributeInfo) for i in 1:attributescount]
+    attributes = [read(io, AttributeInfo) for _ in 1:attributescount]
     FieldInfo(accessflags, nameindex, descriptorindex, attributes)
 end
 
@@ -375,14 +373,14 @@ function read(io::IO, ::Type{MethodInfo})
     nameindex = ntoh(read(io, UInt16))
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
-    attributes = [read(io, AttributeInfo) for i in 1:attributescount]
+    attributes = [read(io, AttributeInfo) for _ in 1:attributescount]
     MethodInfo(accessflags, nameindex, descriptorindex, attributes)
 end
 
 struct ClassFile
     minorversion::UInt16
     majorversion::UInt16
-    constantpoolinfo::Vector{ConstantPoolInfo}
+    constantpoolinfo::Vector{ConstantInfo}
     accessflags::UInt16
     thisclass::UInt16
     superclass::UInt16
@@ -429,18 +427,18 @@ function read(io::IO, ::Type{ClassFile})
     minorversion = ntoh(read(io, UInt16))
     majorversion = ntoh(read(io, UInt16))
     constantpoolcount = ntoh(read(io, UInt16))
-    constantpoolinfo = [read(io, ConstantPoolInfo) for i in 1:constantpoolcount-1]
+    constantpoolinfo = [read(io, ConstantInfo) for _ in 1:constantpoolcount-1]
     accessflags = ntoh(read(io, UInt16))
     thisclass = ntoh(read(io, UInt16))
     superclass = ntoh(read(io, UInt16))
     interfacescount = ntoh(read(io, UInt16))
-    interfaces = [ntoh(read(io, UInt16)) for i in 1:interfacescount]
+    interfaces = [ntoh(read(io, UInt16)) for _ in 1:interfacescount]
     fieldscount = ntoh(read(io, UInt16))
-    fields = [read(io, FieldInfo) for i in 1:fieldscount]
+    fields = [read(io, FieldInfo) for _ in 1:fieldscount]
     methodscount = ntoh(read(io, UInt16))
-    methods = [read(io, MethodInfo) for i in 1:methodscount]
+    methods = [read(io, MethodInfo) for _ in 1:methodscount]
     attributescount = ntoh(read(io, UInt16))
-    attributes = [read(io, AttributeInfo) for i in 1:attributescount]
+    attributes = [read(io, AttributeInfo) for _ in 1:attributescount]
     ClassFile(
         minorversion,
         majorversion,
