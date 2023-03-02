@@ -29,7 +29,11 @@ function read(io::IO, ::Type{ConstantPoolTag})
     ConstantPoolTag(ntoh(read(io, UInt8)))
 end
 
-abstract type ConstantInfo{ConstantPoolTag} end
+abstract type ConstantInfo{T} end
+
+function tag(::ConstantInfo{T}) where T
+    T
+end
 
 struct ConstantClassInfo <: ConstantInfo{CONSTANT_CLASS}
     nameindex::UInt16
