@@ -1,0 +1,4 @@
+name = "JVMBytecode"
+uuid = "8cd55fbe-5759-4a4f-b26e-fc2f1e21e0f2"
+authors = ["Luke Bemish <lukebemish@lukebemish.dev>"]
+version = "0.1.0"
