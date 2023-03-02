@@ -1,6 +1,6 @@
 module JVMBytecode
 
-import Base: read, write, float, Integer, UInt8
+import Base: read, write, float, Integer, UInt8, String
 
 primitive type ConstantPoolTag 8 end
 ConstantPoolTag(x) = reinterpret(ConstantPoolTag, UInt8(x))
@@ -188,29 +188,30 @@ struct ConstantUtf8Info <: ConstantInfo{CONSTANT_UTF8}
     bytes::Vector{UInt8}
 end
 
-function string(info::ConstantUtf8Info)
+function String(info::ConstantUtf8Info)
     javastring(info.bytes)
 end
 
 function javastring(bytes::Vector{UInt8})
     chars = Char[]
-    while length(bytes) > 0
-        byte = popfirst!(bytes)
+    index = 1
+    while index <= length(bytes)
+        byte = bytes[index]; index += 1
         if byte >> 7 == 0
             push!(chars, Char(byte))
         elseif byte >> 5 == 0b110
             if length(bytes) < 1 || bytes[1] >> 6 != 0b10
                 throw(ArgumentError("Invalid Java UTF-8 encoding"))
             end
-            byte2 = popfirst!(bytes)
+            byte2 = bytes[index]; index += 1
             char = (UInt16(byte) & 0x1F) << 6 | (UInt16(byte2) & 0x3F)
             push!(chars, Char(char))
         elseif byte >> 4 == 0b1110
             if length(bytes) < 2 || bytes[1] >> 6 != 0b10 || bytes[2] >> 6 != 0b10
                 throw(ArgumentError("Invalid Java UTF-8 encoding"))
             end
-            byte2 = popfirst!(bytes)
-            byte3 = popfirst!(bytes)
+            byte2 = bytes[index]; index += 1
+            byte3 = bytes[index]; index += 1
             char = (UInt16(byte) & 0x0F) << 12 | (UInt16(byte2) & 0x3F) << 6 | (UInt16(byte3) & 0x3F)
             push!(chars, Char(char))
         else
@@ -308,13 +309,12 @@ end
 
 struct AttributeInfo
     attributenameindex::UInt16
-    attributecount::UInt32
     info::Vector{UInt8}
 end
 
 function write(io::IO, info::AttributeInfo)
     write(io, hton(info.attributenameindex))
-    write(io, hton(info.attributecount))
+    write(io, hton(UInt32(length(info.info))))
     for byte in info.info
         write(io, hton(byte))
     end
@@ -324,14 +324,13 @@ function read(io::IO, ::Type{AttributeInfo})
     attributenameindex = ntoh(read(io, UInt16))
     attributecount = ntoh(read(io, UInt32))
     info = [ntoh(read(io, UInt8)) for i in 1:attributecount]
-    AttributeInfo(attributenameindex, attributecount, info)
+    AttributeInfo(attributenameindex, info)
 end
 
 struct FieldInfo
     accessflags::UInt16
     nameindex::UInt16
     descriptorindex::UInt16
-    attributescount::UInt16
     attributes::Vector{AttributeInfo}
 end
 
@@ -339,7 +338,7 @@ function write(io::IO, info::FieldInfo)
     write(io, hton(info.accessflags))
     write(io, hton(info.nameindex))
     write(io, hton(info.descriptorindex))
-    write(io, hton(info.attributescount))
+    write(io, hton(UInt16(length(info.attributes))))
     for attr in info.attributes
         write(io, attr)
     end
@@ -351,14 +350,13 @@ function read(io::IO, ::Type{FieldInfo})
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
     attributes = [read(io, AttributeInfo) for i in 1:attributescount]
-    FieldInfo(accessflags, nameindex, descriptorindex, attributescount, attributes)
+    FieldInfo(accessflags, nameindex, descriptorindex, attributes)
 end
 
 struct MethodInfo
     accessflags::UInt16
     nameindex::UInt16
     descriptorindex::UInt16
-    attributescount::UInt16
     attributes::Vector{AttributeInfo}
 end
 
@@ -366,7 +364,7 @@ function write(io::IO, info::MethodInfo)
     write(io, hton(info.accessflags))
     write(io, hton(info.nameindex))
     write(io, hton(info.descriptorindex))
-    write(io, hton(info.attributescount))
+    write(io, hton(UInt16(length(info.attributes))))
     for attr in info.attributes
         write(io, attr)
     end
@@ -378,25 +376,20 @@ function read(io::IO, ::Type{MethodInfo})
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
     attributes = [read(io, AttributeInfo) for i in 1:attributescount]
-    MethodInfo(accessflags, nameindex, descriptorindex, attributescount, attributes)
+    MethodInfo(accessflags, nameindex, descriptorindex, attributes)
 end
 
 struct ClassFile
     magic::UInt32
     minorversion::UInt16
     majorversion::UInt16
-    constantpoolcount::UInt16
     constantpoolinfo::Vector{ConstantPoolInfo}
     accessflags::UInt16
     thisclass::UInt16
     superclass::UInt16
-    interfacescount::UInt16
     interfaces::Vector{UInt16}
-    fieldscount::UInt16
     fields::Vector{FieldInfo}
-    methodscount::UInt16
     methods::Vector{MethodInfo}
-    attributescount::UInt16
     attributes::Vector{AttributeInfo}
 end
 
@@ -404,26 +397,26 @@ function write(io::IO, class::ClassFile)
     write(io, hton(class.magic))
     write(io, hton(class.minorversion))
     write(io, hton(class.majorversion))
-    write(io, hton(class.constantpoolcount))
+    write(io, hton(UInt16(length(class.constantpoolinfo) + 1)))
     for info in class.constantpoolinfo
         write(io, info)
     end
     write(io, hton(class.accessflags))
     write(io, hton(class.thisclass))
     write(io, hton(class.superclass))
-    write(io, hton(class.interfacescount))
+    write(io, hton(UInt16(length(class.interfaces))))
     for interface in class.interfaces
         write(io, hton(interface))
     end
-    write(io, hton(class.fields_ount))
+    write(io, hton(UInt16(length(class.fields))))
     for field in class.fields
         write(io, field)
     end
-    write(io, hton(class.methodscount))
+    write(io, hton(UInt16(length(class.methods))))
     for method in class.methods
         write(io, method)
     end
-    write(io, hton(class.attributescount))
+    write(io, hton(UInt16(length(class.attributes))))
     for attribute in class.attributes
         write(io, attribute)
     end
@@ -450,18 +443,13 @@ function read(io::IO, ::Type{ClassFile})
         magic,
         minorversion,
         majorversion,
-        constantpoolcount,
         constantpoolinfo,
         accessflags,
         thisclass,
         superclass,
-        interfacescount,
         interfaces,
-        fieldscount,
         fields,
-        methodscount,
         methods,
-        attributescount,
         attributes
     )
 end
