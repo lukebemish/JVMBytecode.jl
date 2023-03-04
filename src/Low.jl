@@ -1,5 +1,7 @@
 module Low
 
+using ..Flags
+
 import Base: read, write, float, Integer, UInt8, String
 
 primitive type ConstantPoolTag 8 end
@@ -385,7 +387,7 @@ struct ClassFile
     minorversion::UInt16
     majorversion::UInt16
     constantpoolinfo::Vector{ConstantInfo}
-    accessflags::UInt16
+    accessflags::TypedFlagSet{:class}
     thisclass::UInt16
     superclass::UInt16
     interfaces::Vector{UInt16}
@@ -402,7 +404,7 @@ function write(io::IO, class::ClassFile)
     for info in class.constantpoolinfo
         write(io, info)
     end
-    write(io, hton(class.accessflags))
+    write(io, class.accessflags)
     write(io, hton(class.thisclass))
     write(io, hton(class.superclass))
     write(io, hton(UInt16(length(class.interfaces))))
@@ -432,7 +434,7 @@ function read(io::IO, ::Type{ClassFile})
     majorversion = ntoh(read(io, UInt16))
     constantpoolcount = ntoh(read(io, UInt16))
     constantpoolinfo = [read(io, ConstantInfo) for _ in 1:constantpoolcount-1]
-    accessflags = ntoh(read(io, UInt16))
+    accessflags = read(io, TypedFlagSet{:class})
     thisclass = ntoh(read(io, UInt16))
     superclass = ntoh(read(io, UInt16))
     interfacescount = ntoh(read(io, UInt16))

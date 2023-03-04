@@ -1,6 +1,7 @@
 module JVMBytecode
 
-include("structures.jl")
-include("mutable.jl")
+include("Flags.jl")
+include("Low.jl")
+include("Mutable.jl")
 
 end
