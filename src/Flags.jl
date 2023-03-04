@@ -52,6 +52,7 @@ function (&)(a::TypedFlagSet{A}, b::TypedFlagSet{A}) where A
 end
 
 (==)(a::AccessFlagSet, b::AccessFlagSet) = set(a) == set(b)
+(==)(a::AccessFlag, b::AccessFlag) = a.bits == b.bits
 (==)(a::TypedFlagSet{A}, b::TypedFlagSet{A}) where A = a.flags == b.flags
 
 in(flag::AccessFlag, set::AccessFlagSet) = bits(flag) & bits(set) == bits(flag)
