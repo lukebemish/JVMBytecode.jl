@@ -332,14 +332,14 @@ function read(io::IO, ::Type{AttributeInfo})
 end
 
 struct FieldInfo
-    accessflags::UInt16
+    accessflags::TypedFlagSet{:field}
     nameindex::UInt16
     descriptorindex::UInt16
     attributes::Vector{AttributeInfo}
 end
 
 function write(io::IO, info::FieldInfo)
-    write(io, hton(info.accessflags))
+    write(io, info.accessflags)
     write(io, hton(info.nameindex))
     write(io, hton(info.descriptorindex))
     write(io, hton(UInt16(length(info.attributes))))
@@ -349,7 +349,7 @@ function write(io::IO, info::FieldInfo)
 end
 
 function read(io::IO, ::Type{FieldInfo})
-    accessflags = ntoh(read(io, UInt16))
+    accessflags = read(io, TypedFlagSet{:field})
     nameindex = ntoh(read(io, UInt16))
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
@@ -358,14 +358,14 @@ function read(io::IO, ::Type{FieldInfo})
 end
 
 struct MethodInfo
-    accessflags::UInt16
+    accessflags::TypedFlagSet{:method}
     nameindex::UInt16
     descriptorindex::UInt16
     attributes::Vector{AttributeInfo}
 end
 
 function write(io::IO, info::MethodInfo)
-    write(io, hton(info.accessflags))
+    write(io, info.accessflags)
     write(io, hton(info.nameindex))
     write(io, hton(info.descriptorindex))
     write(io, hton(UInt16(length(info.attributes))))
@@ -375,7 +375,7 @@ function write(io::IO, info::MethodInfo)
 end
 
 function read(io::IO, ::Type{MethodInfo})
-    accessflags = ntoh(read(io, UInt16))
+    accessflags = read(io, TypedFlagSet{:method})
     nameindex = ntoh(read(io, UInt16))
     descriptorindex = ntoh(read(io, UInt16))
     attributescount = ntoh(read(io, UInt16))
